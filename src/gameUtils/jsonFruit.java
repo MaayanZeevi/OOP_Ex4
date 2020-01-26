@@ -18,24 +18,24 @@ public class jsonFruit {
         this.type = temp.type;
         this.value = temp.value;
     }
+
     /*
      * return location of temporary fruit
      */
-
-    public String getpos(){
+    public String getpos() {
         return this.pos;
     }
+
     /*
      *return type of temporary fruit
      */
     public int gettype(){
         return this.type;
     }
+
      /*
      *return value of temporary fruit
      */
-
-
     public double getValue(){
         return this.value;
     }

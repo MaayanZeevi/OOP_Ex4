@@ -1,6 +1,6 @@
 package gameClient;
 
-import java.awt.Color;
+import java.awt.*;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,13 +24,14 @@ public class MyGameGUI implements Runnable {
 	int robots;
 	GameServer GameServer;
 	int level;
-
+	int moves = 0;
 	Graph_Algo graph_algo;
 	public String type;
 	double maxX = Double.NEGATIVE_INFINITY;
 	double maxY = Double.NEGATIVE_INFINITY;
 	double minX = Double.POSITIVE_INFINITY;
 	double minY = Double.POSITIVE_INFINITY;
+
 	/*
 	 * constractore
 	 */
@@ -149,6 +150,19 @@ public class MyGameGUI implements Runnable {
 		int robots;
 	}
 
+	private void loginToServer(){
+		int id = 0;
+		String idS = JOptionPane.showInputDialog(new JFrame(),"enter your id", null);
+		try {
+			id = Integer.parseInt(idS);
+		}catch (NumberFormatException e) {
+			JOptionPane.showMessageDialog(new JFrame(), "the action was canceled");
+			return;
+		}
+		Game_Server.login(id);
+	}
+
+
 	/*
      * This method enables the user to choose play with mode Manual
      */
@@ -169,10 +183,12 @@ public class MyGameGUI implements Runnable {
 		this.DrawGraph();
 		this.addRobotsManual();
 		this.DrawFruit();
+		loginToServer();
 		this.game.startGame();
 		StdDraw.enableDoubleBuffering();
 		while (this.game.isRunning()) {
-			List<String> robots = this.game.move();
+			List<String> robots =  this.game.move();
+			moves++;
 			for (String i : robots) {
 				robot temp1 = new robot(i);
 				if (temp1.getDest() == -1) {
@@ -206,13 +222,12 @@ public class MyGameGUI implements Runnable {
      */
 	public void Automatic() {
 
-
 		this.GameServer = new GameServer();
-		this.level = getLevel()-1;
+		this.level = getLevel();
 		this.game = Game_Server.getServer(level );
 
 		Gson gson = new Gson();
-		MyGameGUI temp = gson.fromJson(game.toString(), MyGameGUI.class);
+		MyGameGUI temp = gson.fromJson(game.toString(), MyGameGUI.class); //puts game server data into MyGameGUI instance
 		this.GameServer = temp.GameServer;
 
 		this.robots = this.GameServer.robots;
@@ -226,10 +241,29 @@ public class MyGameGUI implements Runnable {
 		this.DrawRobots();
 
 		KML_Logger.openFile(this.level + ".kml");
+		loginToServer();
 		this.game.startGame();
 		StdDraw.enableDoubleBuffering();
+		Runnable gameShow = new Runnable() {
+			@Override
+			public void run() {
+				movesCounter();
+
+			}
+		};
+		Thread thread1 = new Thread(gameShow);
+		int id = 0;
+		String idS = JOptionPane.showInputDialog(new JFrame(),"enter your id", null);
+		try {
+			id = Integer.parseInt(idS);
+		}catch (NumberFormatException e) {
+			JOptionPane.showMessageDialog(new JFrame(), "the action was canceled");
+			return;
+		}
+		Game_Server.login(id);
+		thread1.start();
 		while (this.game.isRunning()) {
-			List<String> robots = this.game.move();
+			List<String> robots =this.game.move();
 			for (String i : robots) {
 				robot temp1 = new robot(i);
 				if (temp1.getDest() == -1) {
@@ -254,16 +288,102 @@ public class MyGameGUI implements Runnable {
 		}
 		StdDraw.disableDoubleBuffering();
 		StdDraw.clear();
+		try {
+			Thread.sleep(4500);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		end();
 		KML_Logger.closeFile(this.level + ".kml");
+	}
+
+
+	//this method counts how much moves the player did in the game
+	public void movesCounter() {
+		while (this.game.isRunning()){
+			this.game.move();
+			this.moves++;
+			try {
+				Thread.sleep(1);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public void automaticWithKml(){
+		this.GameServer = new GameServer();
+		this.level = getLevel();
+		this.game = Game_Server.getServer(level );
+
+		Gson gson = new Gson();
+		MyGameGUI temp = gson.fromJson(game.toString(), MyGameGUI.class);
+		this.GameServer = temp.GameServer;
+
+		this.robots = this.GameServer.robots;
+		game = Game_Server.getServer(this.level );
+		this.graph = new DGraph();
+		this.graph.init(this.game.getGraph());
+		this.graph_algo = new Graph_Algo(this.graph);
+		this.DrawGraph();
+		this.DrawFruit();
+		this.AutomaticRobot();
+		this.DrawRobots();
+		KML_Logger.openFile((level) + ".kml");
+		loginToServer();
+		this.game.startGame();
+		StdDraw.enableDoubleBuffering();
+		Runnable gameShow = new Runnable() {
+			@Override
+			public void run() {
+				movesCounter();
+			}
+		};
+		Thread thread1 = new Thread(gameShow);
+		thread1.start();
+
+		while (this.game.isRunning()) {
+			List<String> robots =this.game.move();
+			for (String i : robots) {
+				robot temp1 = new robot(i);
+				if (temp1.getDest() == -1) {
+					this.game.chooseNextEdge(temp1.getId(), NearestNode(temp1, 0.0));
+				}
+			}
+			this.game.move();
+			StdDraw.clear();
+			DrawGraph();
+			DrawFruit();
+			DrawRobots();
+			DrawTime();
+			StdDraw.show();
+			List<String> fruitsList = this.game.getFruits();
+			for (String fruit : fruitsList) {
+				KML_Logger.addFruit(this.level + ".kml", fruit);
+			}
+			List<String> robotsList = this.game.getRobots();
+			for (String robot : robotsList) {
+				KML_Logger.addRobot(this.level + ".kml", robot);
+			}
+
+		}
+		StdDraw.disableDoubleBuffering();
+		StdDraw.clear();
+		try {
+			Thread.sleep(4500);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		end();
+		KML_Logger.closeFile(level + ".kml");
+		System.out.println(this.moves);
+		game.sendKML(KML_Logger.toString(level + ".kml"));
 	}
 
 	/*
      * this method enables the user to add Robots manually.
      *
      */
-
-
 	public boolean addRobotsManual() {
 
 		for (int i = 0; i < this.robots; i++) {
@@ -356,7 +476,7 @@ public class MyGameGUI implements Runnable {
 
 	//DOO
 	private int getLevel() {
-		String level = JOptionPane.showInputDialog("select a level Between 1 and 24", null);
+		String level = JOptionPane.showInputDialog("select a level Between 0 and 23", null);
 		int NumbrLevel = -1;
 
 		try {
@@ -366,7 +486,7 @@ public class MyGameGUI implements Runnable {
 			NumbrLevel = (int) (Math.random() * 25);
 		}
 
-		if (NumbrLevel < 1 || NumbrLevel > 24) {
+		if (NumbrLevel < 0 || NumbrLevel > 23) {
 			NumbrLevel = (int) (Math.random() * 25);
 		}
 
@@ -492,12 +612,15 @@ public class MyGameGUI implements Runnable {
 	}
 	/*
      * If the selected mode was "manual",  the game run in manual mode.
-     * If the selected mode was automatic, the game run tin automatic mode.
+     * If the selected mode was automatic, the game run in automatic mode.
      */
 	@Override
 	public void run() {
 		if (this.type.equals("Manual")) Manual();
 		if (this.type.equals("Automatic")) Automatic();
+		if (this.type.equals("Automatic with KML")) automaticWithKml();
+		if (this.type.equals("Your Grade")) yourScore();
+//		if (this.type.equals("Global Grade")) globalScore();
 
 	}
 
@@ -513,7 +636,151 @@ public class MyGameGUI implements Runnable {
 			score = score + rob.getPoints();
 		}
 		StdDraw.setPenColor(Color.green);
-		StdDraw.textRight(((StdDraw.xmax + StdDraw.xmin) / 2), ((StdDraw.ymax + StdDraw.ymin) / 2) + 0.002, "game end.Your score:"+score);
+		StdDraw.textRight(((StdDraw.xmax + StdDraw.xmin) / 2), ((StdDraw.ymax + StdDraw.ymin) / 2) + 0.002,"game end and your score is" + score);
+	}
+
+	public void yourScore() {
+		StdDraw.clear();
+		StdDraw.setFont(new Font("arial", Font.PLAIN, 15));
+		StdDraw.setPenColor(Color.red);
+		int id = 0;
+		String idStr = JOptionPane.showInputDialog(new JFrame(),"Please enter your ID", null);
+		try {
+			id = Integer.parseInt(idStr);
+		}catch (NumberFormatException e) {
+			JOptionPane.showMessageDialog(new JFrame(), "Eror, unvalide input!");
+		}
+
+		int []Stages = grade.CurrentStage(id);
+		for (int i = 0; i < Stages.length; i++) {
+			if (Stages[i] == 0) {
+
+				if (i == 0) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 0");
+
+
+					break;
+				}
+				else if (i == 1) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 1");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					break;
+				}
+				else if (i == 2) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 3");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is   " + Stages[1]);
+					break;
+				}
+				else if (i == 3) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 5");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					break;
+				}
+				else if (i == 4) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 9");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+
+					break;
+				}
+				else if (i == 5) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 11");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.25 , "Your higher grade at level 9 is  " + Stages[4]);
+
+					break;
+				}
+				else if (i == 6) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 13");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.25 , "Your higher grade at level 9 is  " + Stages[4]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.30 , "Your higher grade at level 11 is  " + Stages[5]);
+					break;
+				}
+				else if (i == 7) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 16");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.25 , "Your higher grade at level 9 is  " + Stages[4]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.30 , "Your higher grade at level 11 is  " + Stages[5]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.35 , "Your higher grade at level 13 is  " + Stages[6]);
+					break;
+				}
+				else if (i == 8) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 19");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.25 , "Your higher grade at level 9 is  " + Stages[4]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.30 , "Your higher grade at level 11 is  " + Stages[5]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.35 , "Your higher grade at level 13 is  " + Stages[6]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.40 , "Your higher grade at level 16 is  " + Stages[7]);
+					break;
+				}
+				else if (i == 9) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 20");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.25 , "Your higher grade at level 9 is  " + Stages[4]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.30 , "Your higher grade at level 11 is  " + Stages[5]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.35 , "Your higher grade at level 13 is  " + Stages[6]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.40 , "Your higher grade at level 16 is  " + Stages[7]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.45 , "Your higher grade at level 19 is  " + Stages[8]);
+					break;
+				}
+				else if (i == 10) {
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have played " + grade.frequenceOfGame(id) +" times"+" \n  and your level is 23");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.25 , "Your higher grade at level 9 is  " + Stages[4]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.30 , "Your higher grade at level 11 is  " + Stages[5]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.35 , "Your higher grade at level 13 is  " + Stages[6]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.40 , "Your higher grade at level 16 is  " + Stages[7]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.45 , "Your higher grade at level 19 is  " + Stages[8]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.50 , "Your higher grade at level 20 is  " + Stages[9]);
+
+					break;
+				}
+				else{ // i=11
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 , "You have finished the game");
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.05 , "Your higher grade at level 0 is   " + Stages[0]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.1 , "Your higher grade at level 1 is  " + Stages[1]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.15 , "Your higher grade at level 3 is  " + Stages[2]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.20 , "Your higher grade at level 5 is  " + Stages[3]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.25 , "Your higher grade at level 9 is  " + Stages[4]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.30 , "Your higher grade at level 11 is  " + Stages[5]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.35 , "Your higher grade at level 13 is  " + Stages[6]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.40 , "Your higher grade at level 16 is  " + Stages[7]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.45 , "Your higher grade at level 19 is  " + Stages[8]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.50 , "Your higher grade at level 20 is  " + Stages[9]);
+					StdDraw.text(((StdDraw.xmax + StdDraw.xmin) / 5), ((StdDraw.ymax + StdDraw.ymin) / 5) * 4 -0.55 , "Your higher grade at level 23 is  " + Stages[10]);
+
+
+
+					break;
+				}
+			}
+		}
 
 	}
+
+
 }

@@ -1,10 +1,7 @@
 package gameClient;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
+import java.util.stream.Collectors;
 
 import gameUtils.Fruit;
 import gameUtils.robot;
@@ -108,6 +105,21 @@ public class KML_Logger {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	/*
+	*This method rerurns the subtext of the KML file
+	 */
+	public static String toString(String file_Name) {
+		BufferedReader readFile = null;
+
+		try {
+			readFile = new BufferedReader(new FileReader(new File(file_Name)));
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return readFile.lines().collect(Collectors.joining(System.lineSeparator()));
 	}
 
 }

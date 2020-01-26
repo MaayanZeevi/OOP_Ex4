@@ -717,14 +717,27 @@ public final class StdDraw implements ActionListener, MouseListener, MouseMotion
 	// create the menu bar (changed to private)
 	private static JMenuBar createMenuBar() {
 		JMenuBar menuBar = new JMenuBar();
-		JMenu menu = new JMenu("New Game");
-		menuBar.add(menu);
-		JMenuItem Manual = new JMenuItem("Manual");
-		JMenuItem Automatic = new JMenuItem("Automatic");
-		Automatic.addActionListener(std);
-		Manual.addActionListener(std);
-		menu.add(Manual);
-		menu.add(Automatic);
+		JMenu newGame = new JMenu("New game");
+		JMenu score = new JMenu("Grade");
+		menuBar.add(newGame);
+		menuBar.add(score);
+		JMenuItem manual = new JMenuItem("Manual");
+		JMenuItem automatic = new JMenuItem("Automatic");
+		JMenuItem automaticWithKML = new JMenuItem("Automatic with KML");
+		automatic.addActionListener(std);
+		manual.addActionListener(std);
+		automaticWithKML.addActionListener(std);
+		newGame.add(manual);
+		newGame.add(automatic);
+		newGame.add(automaticWithKML);
+		JMenuItem yourScore = new JMenuItem("Your Grade");
+		JMenuItem globalScore = new JMenuItem("Global Grade");
+		yourScore.addActionListener(std);
+		globalScore.addActionListener(std);
+		score.add(yourScore);
+		score.add(globalScore);
+
+
 		return menuBar;
 	}
 

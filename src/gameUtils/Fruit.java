@@ -9,6 +9,7 @@ public class Fruit {
 	public double value;
 	public int type;
 
+
 	/*
      * Builds the object fruit from a json String
      */
@@ -18,6 +19,7 @@ public class Fruit {
 		this.location = new Point3D(temp.pos);
 		this.value = temp.value;
 		this.type = temp.type;
+
 		if (temp.type == -1) {
 			this.image = "Images/banana.png";
 		}
